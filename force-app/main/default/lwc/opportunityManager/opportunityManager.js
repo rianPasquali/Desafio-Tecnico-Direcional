@@ -5,20 +5,10 @@ import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 import getOpportunities from '@salesforce/apex/OpportunityManagerController.getOpportunities';
 import markOpportunityClosed from '@salesforce/apex/OpportunityManagerController.markOpportunityClosed';
 
-const COLUMNS = [
-    { label: 'Name', fieldName: 'Name', type: 'text', sortable: true, wrapText: true },
-    { label: 'Stage', fieldName: 'StageName', type: 'text', sortable: true },
-    { label: 'Amount', fieldName: 'Amount', type: 'currency', sortable: true },
-    { label: 'Close Date', fieldName: 'CloseDate', type: 'date', sortable: true },
-    { type: 'button', initialWidth: 150, typeAttributes: { label: 'Ver Detalhes', name: 'view_details', title: 'Ver Detalhes' } },
-    { type: 'button', initialWidth: 180, typeAttributes: { label: 'Marcar como Fechada', name: 'mark_closed', title: 'Marcar como Fechada' } }
-];
-
 export default class OpportunityManager extends NavigationMixin(LightningElement) {
     @track opps = [];
     // Mantém o conjunto original para aplicar filtros sem perder os dados brutos
     originalOpps = [];
-    columns = COLUMNS;
     error;
     // Campo de filtro para o nome da Conta
     accountFilter = '';
@@ -26,6 +16,27 @@ export default class OpportunityManager extends NavigationMixin(LightningElement
     debounceTimeout;
     // Guarda o resultado do wire para refreshApex
     wiredOppsResult;
+    loadingRows = new Set();
+
+    get columns() {
+        return [
+            { label: 'Name', fieldName: 'Name', type: 'text', sortable: true, wrapText: true },
+            { label: 'Stage', fieldName: 'StageName', type: 'text', sortable: true },
+            { label: 'Amount', fieldName: 'Amount', type: 'currency', sortable: true },
+            { label: 'Close Date', fieldName: 'CloseDate', type: 'date', sortable: true },
+            { type: 'button', initialWidth: 150, typeAttributes: { label: 'Ver Detalhes', name: 'view_details', title: 'Ver Detalhes' } },
+            { 
+              type: 'button', 
+              initialWidth: 200, 
+              typeAttributes: {
+                label: { fieldName: 'closeButtonLabel' },
+                name: 'mark_closed',
+                title: 'Marcar como Fechada',
+                disabled: { fieldName: 'closeButtonDisabled' }
+              }
+            }
+        ];
+    }
 
     @wire(getOpportunities)
     listOpps(value) {
@@ -36,6 +47,7 @@ export default class OpportunityManager extends NavigationMixin(LightningElement
             // Guarda original e fornece a lista inicial
             this.originalOpps = data;
             this.opps = data;
+            this.decorateRows();
             this.error = undefined;
         } else if (error) {
             this.error = error;
@@ -65,6 +77,7 @@ export default class OpportunityManager extends NavigationMixin(LightningElement
         if (!filterValue) {
             // Sem filtro restaura a lista original
             this.opps = [...this.originalOpps];
+            this.decorateRows();
             return;
         }
 
@@ -74,6 +87,19 @@ export default class OpportunityManager extends NavigationMixin(LightningElement
             return accName.includes(filterValue);
         });
         this.opps = filtered;
+        this.decorateRows();
+    }
+
+    decorateRows() {
+        this.opps = this.opps.map(o => {
+            const isLoading = this.loadingRows.has(o.Id);
+            const alreadyClosed = o.StageName === 'Closed Won';
+            return {
+                ...o,
+                closeButtonLabel: isLoading ? 'Carregando...' : 'Marcar como Fechada',
+                closeButtonDisabled: isLoading || alreadyClosed
+            };
+        });
     }
 
     handleRowAction(event) {
@@ -99,6 +125,10 @@ export default class OpportunityManager extends NavigationMixin(LightningElement
                 );
                 return;
             }
+
+            this.loadingRows.add(row.Id);
+            this.decorateRows();
+
             // Chama o Apex para atualizar o StageName
             markOpportunityClosed({ opportunityId: row.Id })
             .then(() => {
@@ -115,6 +145,10 @@ export default class OpportunityManager extends NavigationMixin(LightningElement
                 this.dispatchEvent(
                     new ShowToastEvent({ title: 'Erro', message: 'Erro ao marcar Oportunidade: ' + (err.body ? err.body.message : err.message), variant: 'error' })
                 );
+            })
+            .finally(() => {
+                this.loadingRows.delete(row.Id);
+                this.decorateRows();
             });
         }
     }
