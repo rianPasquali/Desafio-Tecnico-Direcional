@@ -1,11 +1,19 @@
 <template>
   <lightning-card title="Opportunities">
     <div class="slds-p-around_medium">
-      <lightning-datatable
-        key-field="Id"
-        data={opps}
-        columns={columns}
-      ></lightning-datatable>
+        <!-- Campo de busca por Account Name -->
+        <lightning-input
+            type="search"
+            label="Filtrar por Nome da Conta"
+            placeholder="Digite o nome da Conta"
+            value={accountFilter}
+            oninput={handleAccountFilterInput}
+        ></lightning-input>
+        <lightning-datatable
+            key-field="Id"
+            data={opps}
+            columns={columns}
+        ></lightning-datatable>
     </div>
   </lightning-card>
 </template>
