@@ -1,14 +1,16 @@
 import { LightningElement, wire, track } from 'lwc';
+import { NavigationMixin } from 'lightning/navigation';
 import getOpportunities from '@salesforce/apex/OpportunityManagerController.getOpportunities';
 
 const COLUMNS = [
     { label: 'Name', fieldName: 'Name', type: 'text', sortable: true, wrapText: true },
     { label: 'Stage', fieldName: 'StageName', type: 'text', sortable: true },
     { label: 'Amount', fieldName: 'Amount', type: 'currency', sortable: true },
-    { label: 'Close Date', fieldName: 'CloseDate', type: 'date', sortable: true }
+    { label: 'Close Date', fieldName: 'CloseDate', type: 'date', sortable: true },
+    { type: 'button', initialWidth: 150, typeAttributes: { label: 'Ver Detalhes', name: 'view_details', title: 'Ver Detalhes' } }
 ];
 
-export default class OpportunityManager extends LightningElement {
+export default class OpportunityManager extends NavigationMixin(LightningElement) {
     @track opps = [];
     // Mantém o conjunto original para aplicar filtros sem perder os dados brutos
     originalOpps = [];
@@ -63,5 +65,22 @@ export default class OpportunityManager extends LightningElement {
             return accName.includes(filterValue);
         });
         this.opps = filtered;
+    }
+
+    handleRowAction(event) {
+        const actionName = event.detail.action.name;
+        const row = event.detail.row;
+
+        if (actionName === 'view_details') {
+        // Navega para a página de registro da Opportunity
+        this[NavigationMixin.Navigate]({
+                type: 'standard__recordPage',
+                attributes: {
+                    recordId: row.Id,
+                    objectApiName: 'Opportunity',
+                    actionName: 'view'
+                }
+            });
+        }
     }
 }
