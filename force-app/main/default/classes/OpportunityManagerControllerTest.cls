@@ -81,7 +81,6 @@ private class OpportunityManagerControllerTest {
 
   @isTest
   static void testMarkOpportunityClosedExceptionPath() {
-    // Chamando com null deve causar exceção dentro do método e ser relançada como AuraHandledException
     Boolean caught = false;
     Id fakeId = Id.valueOf('006000000000000AAA');
     Test.startTest();
